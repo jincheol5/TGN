@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from .graph_utils import TemporalGraphData
+from .data import TemporalGraphData
 
 class EmbeddingModule(nn.Module):
     def __init__(self,

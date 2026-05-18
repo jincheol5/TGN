@@ -12,11 +12,6 @@ class TemporalGraphData:
         value: feature tensor
         dummy node id: 0
         dummy node feature: zero tensor
-    node_memory: dict of each node memory state 
-        key: node_id
-        value: feature tensor, init zero-vector
-        dummy node id: 0
-        dummy node feature: zero tensor
     neighbor: dict of each node's in-neighbor id list
         key: node_id
         value: list of neighbor node id
@@ -26,17 +21,14 @@ class TemporalGraphData:
         value: list of neighbor interact timestamp
         dummy node's neighbor_t: []
     """
-    def __init__(self,node_dim:int=32,memory_dim:int=32):
+    def __init__(self,node_dim:int=32):
         self.node_ft={}
-        self.node_memory={}
         self.neighbor={}
         self.neighbor_t={}
         self.node_dim=node_dim
-        self.memory_dim=memory_dim
         
         # init dummy node feature
         self.node_ft[0]=torch.zeros(self.node_dim)
-        self.node_memory[0]=torch.zeros(self.memory_dim)
         self.neighbor[0]=[]
         self.neighbor_t[0]=[]
 
@@ -49,10 +41,8 @@ class TemporalGraphData:
             src,tar,timestamp=event
             if src not in self.node_ft:
                 self.node_ft[src]=torch.ones(self.node_dim)
-                self.node_memory[src]=torch.zeros(self.memory_dim)
             if tar not in self.node_ft:
                 self.node_ft[tar]=torch.ones(self.node_dim)
-                self.node_memory[tar]=torch.zeros(self.memory_dim)
             if tar not in self.neighbor:
                 self.neighbor[tar]=[]
                 self.neighbor_t[tar]=[]
@@ -67,13 +57,6 @@ class TemporalGraphData:
         t_np=np.array(self.neighbor_t[tar])
         idx=np.searchsorted(t_np,cut_time,side="left")
         return self.neighbor[tar][:idx],self.neighbor_t[tar][:idx]
-
-    def get_data_for_memory_update(self,batch_tar):
-        """
-        """
-        batch_tar_mem=self.get_batch_tar_node_memory(batch_tar=batch_tar)
-        batch_n_mem=
-
 
     def get_data_for_embedding(self,batch_tar,batch_t):
         """
@@ -142,19 +125,6 @@ class TemporalGraphData:
         ) # [B,node_dim]
         return batch_tar_ft
 
-    def get_batch_tar_node_memory(self,batch_tar):
-        """
-        Input:
-            batch_tar: [B,]
-        Output:
-            batch_tar_memory: [B,memory_dim]
-        """
-        batch_tar_memory=torch.stack(
-            [self.node_memory[tar_id.item()] for tar_id in batch_tar],
-            dim=0
-        ) # [B,memory_dim]
-        return batch_tar_memory
-
     def get_batch_n_node_feature(self,batch_n,batch_n_mask):
         """
         Input:
@@ -174,23 +144,43 @@ class TemporalGraphData:
             for neighbors,masks in zip(batch_n,batch_n_mask)
         ],dim=0) # [B,N,node_dim]
         return batch_n_ft
+
+class MemoryData:
+    """
+    <<제공해야 할 것>>
+    - 노드별 메모리 벡터와 이전 상호작용 시간과의 timespan 반환
     
-    def get_batch_n_node_memory(self,batch_n,batch_n_mask):
+
+    memory: dict of node memory state
+        key: node_id
+        value: memory state vector tensor, init zero-vector
+        dummy node id: 0
+        dummy node feature: zero-vector
+    interact_t: dict of node's last interact time
+        key: node_id
+        value: last interact time
+        dummy node id: 0
+        dummy node value: 0
+    """
+    def __init__(self,memory_dim:int=32):
+        self.memory={}
+        self.interact_t={}
+        self.memory_dim=memory_dim
+        
+        # init dummy node
+        self.memory[0]=torch.zeros(self.memory_dim)
+        self.interact_t[0]=0
+
+    def update_memory_store(self,batch_events:list):
         """
         Input:
-            batch_n: [B,N]
-            batch_n_mask: [B,N]
-        Output:
-            batch_n_memory: [B,N,node_dim]
+            event: List of tuple (src,tar,timestamp)
         """
-        padding_memory=torch.zeros(self.node_dim)
-        batch_n_memory=torch.stack([
-            torch.stack([
-                self.node_memory[node_id.item()]
-                if is_valid.item()
-                else padding_memory
-                for node_id,is_valid in zip(neighbors,masks)
-            ],dim=0)
-            for neighbors,masks in zip(batch_n,batch_n_mask)
-        ],dim=0) # [B,N,node_dim]
-        return batch_n_memory
+        for event in batch_events:
+            src,tar,timestamp=event
+            if src not in self.memory:
+                self.memory[src]=torch.zeros(self.memory_dim)
+                self.interact_t[src]=timestamp
+            if tar not in self.memory:
+                self.memory[tar]=torch.zeros(self.memory_dim)
+                self.interact_t[tar]=timestamp

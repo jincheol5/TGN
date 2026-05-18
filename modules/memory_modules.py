@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from typing_extensions import Literal
 from .time_encoding import TimeEncoder
-from .graph_utils import TemporalGraphData 
+from .data import TemporalGraphData 
 
 class MemoryUpdater(nn.Module):
     def __init__(self,
