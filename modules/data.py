@@ -112,20 +112,20 @@ class TemporalGraphData:
             "batch_n_mask" : batch_n_mask
         }
 
-    def get_batch_tar_node_feature(self,batch_tar):
+    def get_batch_node_feature(self,batch_node):
         """
         Input:
-            batch_tar: [B,]
+            batch_node: [B,]
         Output:
-            batch_tar_ft: [B,node_dim]
+            batch_ft: [B,node_dim]
         """
-        batch_tar_ft=torch.stack(
-            [self.node_ft[tar_id.item()] for tar_id in batch_tar],
+        batch_ft=torch.stack(
+            [self.node_ft[node.item()] for node in batch_node],
             dim=0
         ) # [B,node_dim]
-        return batch_tar_ft
+        return batch_ft
 
-    def get_batch_n_node_feature(self,batch_n,batch_n_mask):
+    def get_batch_neighbor_feature(self,batch_n,batch_n_mask):
         """
         Input:
             batch_n: [B,N]
@@ -147,20 +147,16 @@ class TemporalGraphData:
 
 class MemoryData:
     """
-    <<제공해야 할 것>>
-    - 노드별 메모리 벡터와 이전 상호작용 시간과의 timespan 반환
-    
-
     memory: dict of node memory state
         key: node_id
         value: memory state vector tensor, init zero-vector
         dummy node id: 0
         dummy node feature: zero-vector
-    interact_t: dict of node's last interact time
+    interact_t: dict of node's interact time list
         key: node_id
-        value: last interact time
+        value: interact time list 
         dummy node id: 0
-        dummy node value: 0
+        dummy node value: []
     """
     def __init__(self,memory_dim:int=32):
         self.memory={}
@@ -169,9 +165,9 @@ class MemoryData:
         
         # init dummy node
         self.memory[0]=torch.zeros(self.memory_dim)
-        self.interact_t[0]=0
+        self.interact_t[0]=[]
 
-    def update_memory_store(self,batch_events:list):
+    def update_memory_data(self,batch_events:list):
         """
         Input:
             event: List of tuple (src,tar,timestamp)
@@ -180,7 +176,89 @@ class MemoryData:
             src,tar,timestamp=event
             if src not in self.memory:
                 self.memory[src]=torch.zeros(self.memory_dim)
-                self.interact_t[src]=timestamp
+                self.interact_t[src]=[]
             if tar not in self.memory:
                 self.memory[tar]=torch.zeros(self.memory_dim)
-                self.interact_t[tar]=timestamp
+                self.interact_t[tar]=[]
+            self.interact_t[src].append(timestamp)
+            self.interact_t[tar].append(timestamp)
+
+    def update_memory_state(self,batch_node,batch_memory):
+        """
+        Input:
+            batch_node: [B,]
+            batch_memory: [B,memory_dim]
+        """
+        for node,memory_state in zip(batch_node,batch_memory):
+            self.memory[node.item()]=memory_state
+
+    def find_pre_interact_t(self,node,cut_time):
+        """
+        """
+        if node not in self.memory:
+            return 0
+        t_np=np.array(self.interact_t[node])
+        idx=np.searchsorted(t_np,cut_time,side="left")
+        if idx==0:
+            pre_interact_t=0
+        else:
+            pre_interact_t=self.interact_t[node][idx-1]
+        return pre_interact_t
+
+    def get_batch_memory(self,batch_node):
+        """
+        memory store에 없는 노드의 경우 zero_tensor 
+
+        Input:
+            batch_tar: [B,]
+        Output:
+            batch_memory: [B,memory_dim]
+        """
+        batch_memory=torch.stack(
+            [
+                self.memory[node.item()] 
+                if node.item() in self.memory
+                else torch.zeros(self.memory_dim)
+                for node in batch_node
+            ],
+            dim=0
+        ) # [B,memory_dim]
+        return batch_memory
+
+    def get_batch_pre_t(self,batch_node,batch_t):
+        """
+        Input:
+            batch_node: [B,]
+            batch_t: [B,]
+        Output:
+            batch_pre_t: [B,1]
+        """
+        pre_interact_t_list=[
+            [
+                self.find_pre_interact_t(
+                    node=node.item(),
+                    cut_time=timestamp.item()
+                )
+            ]
+            for node,timestamp in zip(batch_node,batch_t)
+        ]
+        batch_pre_t=torch.tensor(pre_interact_t_list) # [B,1]
+        return batch_pre_t # [B,1]
+
+    def get_batch_timespan(self,batch_node,batch_t):
+        """
+        Input:
+            batch_node: [B,]
+            batch_t: [B,]
+        Output:
+            batch_ts: [B,1]
+        """
+        batch_pre_t=self.get_batch_pre_t(
+            batch_node=batch_node,
+            batch_t=batch_t
+        )
+        batch_t=batch_t.unsqueeze(-1) # -> [B,1]
+        batch_ts=torch.abs(
+            batch_t-batch_pre_t
+        )
+        return batch_ts
