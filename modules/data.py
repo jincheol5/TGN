@@ -216,7 +216,7 @@ class MemoryData:
         """
         batch_memory=torch.stack(
             [
-                self.memory[node.item()] 
+                self.memory[node.item()].detach()
                 if node.item() in self.memory
                 else torch.zeros(self.memory_dim)
                 for node in batch_node
