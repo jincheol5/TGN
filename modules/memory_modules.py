@@ -153,6 +153,11 @@ class MemoryUpdater(nn.Module):
     def update_memory(self,src,tar,event_t):
         """
         자식 class의 update_memory 실행으로 자식 class에서 구현된 update_memory_implement 호출
+        
+        Input:
+            src: [B,]
+            tar: [B,]
+            event_t: [B,]
         """
         src_msg,tar_msg=self.create_message(
             src=src,

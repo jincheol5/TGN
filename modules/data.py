@@ -70,6 +70,9 @@ class TemporalGraphData:
             batch_n_ts: [B,N], 이웃 노드들과의 timespan
             batch_n_mask: [B,N]
         """
+
+        ### temporal_n=[([],[]),...] 인 경우 처리 필요. (이웃 노드가 없는 경우)
+
         temporal_n=[
             self.find_temporal_neighbor(
                 tar=tar.item(),
@@ -158,13 +161,13 @@ class MemoryData:
         dummy node id: 0
         dummy node value: []
     """
-    def __init__(self,memory_dim:int=32):
+    def __init__(self,mem_dim:int=32):
         self.memory={}
         self.interact_t={}
-        self.memory_dim=memory_dim
+        self.mem_dim=mem_dim
         
         # init dummy node
-        self.memory[0]=torch.zeros(self.memory_dim)
+        self.memory[0]=torch.zeros(self.mem_dim)
         self.interact_t[0]=[]
 
     def update_memory_data(self,batch_events:list):
@@ -175,10 +178,10 @@ class MemoryData:
         for event in batch_events:
             src,tar,timestamp=event
             if src not in self.memory:
-                self.memory[src]=torch.zeros(self.memory_dim)
+                self.memory[src]=torch.zeros(self.mem_dim)
                 self.interact_t[src]=[]
             if tar not in self.memory:
-                self.memory[tar]=torch.zeros(self.memory_dim)
+                self.memory[tar]=torch.zeros(self.mem_dim)
                 self.interact_t[tar]=[]
             self.interact_t[src].append(timestamp)
             self.interact_t[tar].append(timestamp)
@@ -187,7 +190,7 @@ class MemoryData:
         """
         Input:
             batch_node: [B,]
-            batch_memory: [B,memory_dim]
+            batch_memory: [B,mem_dim]
         """
         for node,memory_state in zip(batch_node,batch_memory):
             self.memory[node.item()]=memory_state
@@ -212,17 +215,17 @@ class MemoryData:
         Input:
             batch_tar: [B,]
         Output:
-            batch_memory: [B,memory_dim]
+            batch_memory: [B,mem_dim]
         """
         batch_memory=torch.stack(
             [
                 self.memory[node.item()].detach()
                 if node.item() in self.memory
-                else torch.zeros(self.memory_dim)
+                else torch.zeros(self.mem_dim)
                 for node in batch_node
             ],
             dim=0
-        ) # [B,memory_dim]
+        ) # [B,mem_dim]
         return batch_memory
 
     def get_batch_pre_t(self,batch_node,batch_t):

@@ -6,14 +6,18 @@ class TemporalGraphAttention(nn.Module):
     torch.nn.MultiheadAttention은 embed_dim % num_heads=0 이여야 함
     """
     def __init__(self,
+            input_dim:int,
+            output_dim:int,
             latent_dim:int,
             time_dim:int,
             n_head:int=1
         ):
         super().__init__()
+        self.input_dim=input_dim
+        self.output_dim=output_dim
         self.latent_dim=latent_dim
         self.time_dim=time_dim
-        self.qkv_dim=latent_dim+time_dim
+        self.qkv_dim=input_dim+time_dim
         self.multi_head_attn=nn.MultiheadAttention(
             embed_dim=self.qkv_dim,
             kdim=self.qkv_dim,
@@ -22,13 +26,13 @@ class TemporalGraphAttention(nn.Module):
         )
         self.MLPs=nn.Sequential(
             nn.Linear(
-                in_features=self.qkv_dim+self.latent_dim,
+                in_features=self.qkv_dim+self.input_dim,
                 out_features=self.latent_dim
             ),
             nn.ReLU(),
             nn.Linear(
                 in_features=self.latent_dim,
-                out_features=self.latent_dim
+                out_features=self.output_dim
             )
         )
     def forward(self,
@@ -40,35 +44,35 @@ class TemporalGraphAttention(nn.Module):
         ):
         """
         Input:
-            tar_ft: [B,latent_dim]
+            tar_ft: [B,input_dim]
             tar_ts_ft: [B,time_dim]
-            n_ft: [B,N,latent_dim]
+            n_ft: [B,N,input_dim]
             n_ts_ft: [B,N,time_dim]
             n_mask: [B,N], True = valid neighbor
         Output:
-            updated tar_ft: # [B,latent_dim]
+            updated tar_ft: # [B,output_dim]
         """
         ### set init
-        tar_ft=tar_ft.unsqueeze(dim=1) # -> [B,1,latent_dim]
+        tar_ft=tar_ft.unsqueeze(dim=1) # -> [B,1,input_dim]
         tar_ts_ft=tar_ts_ft.unsqueeze(dim=1) # -> [B,1,time_dim]
 
         query=torch.cat(
             [tar_ft,tar_ts_ft],
             dim=2
-        ) # -> [B,1,latent_dim+time_dim]
+        ) # -> [B,1,input_dim+time_dim]
         key=torch.cat(
             [n_ft,n_ts_ft],
             dim=2
-        ) # -> [B,N,latent_dim+time_dim]
+        ) # -> [B,N,input_dim+time_dim]
         value=torch.cat(
             [n_ft,n_ts_ft],
             dim=2
-        ) # -> [B,N,latent_dim+time_dim]
+        ) # -> [B,N,input_dim+time_dim]
 
         ### set to [L,B,D]
-        query=query.permute([1,0,2]) # -> [1,B,latent_dim+time_dim] 
-        key=key.permute([1,0,2]) # -> [N,B,latent_dim+time_dim] 
-        value=value.permute([1,0,2]) # -> [N,B,latent_dim+time_dim] 
+        query=query.permute([1,0,2]) # -> [1,B,input_dim+time_dim] 
+        key=key.permute([1,0,2]) # -> [N,B,input_dim+time_dim] 
+        value=value.permute([1,0,2]) # -> [N,B,input_dim+time_dim] 
 
         ### transform n_mask for nn.MultiheadAttention's key_padding_mask
         # key_padding_mask에서는 True가 padding될 neighbor을 의미
@@ -88,17 +92,17 @@ class TemporalGraphAttention(nn.Module):
             key=key,
             value=value,
             key_padding_mask=key_padding_mask
-        ) # attn_output: [1,B,latent_dim+time_dim], attn_weight: [B,1,N]
-        attn_output=attn_output.squeeze() # -> [B,latent_dim+time_dim]
+        ) # attn_output: [1,B,input_dim+time_dim], attn_weight: [B,1,N]
+        attn_output=attn_output.squeeze() # -> [B,input_dim+time_dim]
 
         ### 이웃노드가 없는 target node의 attn 결과 feature를 0 tensor으로 후처리
         attn_output=attn_output.masked_fill(invalid_neighborhood_mask,0) # mask_fill: mask=True인 위치를 value로 덮어쓰기
 
         ### MLPs
-        tar_ft=tar_ft.squeeze() # -> [B,latent_dim]
+        tar_ft=tar_ft.squeeze() # -> [B,input_dim]
         ffn_input=torch.cat(
             [attn_output,tar_ft],
             dim=-1
-        ) # -> [B,latent_dim+time_dim||latent_dim]
-        output=self.MLPs(ffn_input) # [B,latent_dim]
+        ) # -> [B,input_dim+time_dim||input_dim]
+        output=self.MLPs(ffn_input) # [B,output_dim]
         return output
