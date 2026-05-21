@@ -29,19 +29,7 @@ class EmbeddingModule(nn.Module):
         self.n_head=n_head
         self.n_layer=n_layer
         self.is_memory=is_memory
-
-        # module
         self.time_encoder=time_encoder
-        layer_0_input_dim=node_dim+mem_dim if self.is_memory else node_dim
-        self.attn_layers=torch.nn.ModuleList([
-            TemporalGraphAttention(
-                input_dim=layer_0_input_dim if idx==0 else output_dim,
-                latent_dim=latent_dim,
-                output_dim=output_dim,
-                time_dim=time_dim,
-                n_head=n_head
-            )
-        for idx in range(n_layer)])
 
     def compute_embedding(self):
         return NotImplemented
@@ -73,6 +61,17 @@ class GraphAttentionEmbedding(EmbeddingModule):
             n_layer=n_layer,
             is_memory=is_memory
         )
+        # attn module
+        layer_0_input_dim=node_dim+mem_dim if self.is_memory else node_dim
+        self.attn_layers=torch.nn.ModuleList([
+            TemporalGraphAttention(
+                input_dim=layer_0_input_dim if idx==0 else output_dim,
+                latent_dim=latent_dim,
+                output_dim=output_dim,
+                time_dim=time_dim,
+                n_head=n_head
+            )
+        for idx in range(n_layer)])
 
     def compute_embedding(self,
             batch_tar,
