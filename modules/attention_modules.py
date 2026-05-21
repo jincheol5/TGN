@@ -4,18 +4,19 @@ import torch.nn as nn
 class TemporalGraphAttention(nn.Module):
     """
     torch.nn.MultiheadAttention은 embed_dim % num_heads=0 이여야 함
+    h^0_i=s^t_i||v^t_0
     """
     def __init__(self,
             input_dim:int,
-            output_dim:int,
             latent_dim:int,
+            output_dim:int,
             time_dim:int,
             n_head:int=1
         ):
         super().__init__()
         self.input_dim=input_dim
-        self.output_dim=output_dim
         self.latent_dim=latent_dim
+        self.output_dim=output_dim
         self.time_dim=time_dim
         self.qkv_dim=input_dim+time_dim
         self.multi_head_attn=nn.MultiheadAttention(

@@ -16,12 +16,13 @@ def test_fn(**kwargs):
             # parameter
             node_dim=4
             mem_dim=4
-            msg_dim=4
+            msg_dim=12 # msg_fn="concat"인 경우 mem_dim+mem_dim+time_dim
             latent_dim=4
+            output_dim=4
             time_dim=4
             n_head=4
             n_layer=3
-            msg_fn="mlp"
+            msg_fn="concat"
             aggr_fn="last"
             is_memory=True
             batch_size=4
@@ -58,6 +59,7 @@ def test_fn(**kwargs):
                 node_dim=node_dim,
                 mem_dim=mem_dim,
                 latent_dim=latent_dim,
+                output_dim=output_dim,
                 time_dim=time_dim,
                 graph_data=graph_data,
                 memory_data=memory_data,

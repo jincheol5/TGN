@@ -9,6 +9,7 @@ class EmbeddingModule(nn.Module):
             node_dim:int=32,
             mem_dim:int=32,
             latent_dim:int=32,
+            output_dim:int=32,
             time_dim:int=32,
             graph_data:TemporalGraphData=None,
             memory_data:MemoryData=None,
@@ -21,6 +22,7 @@ class EmbeddingModule(nn.Module):
         self.node_dim=node_dim
         self.mem_dim=mem_dim
         self.latent_dim=latent_dim
+        self.output_dim=output_dim
         self.time_dim=time_dim
         self.graph_data=graph_data
         self.memory_data=memory_data
@@ -30,12 +32,12 @@ class EmbeddingModule(nn.Module):
 
         # module
         self.time_encoder=time_encoder
-        layer_0_dim=node_dim+mem_dim if self.is_memory else node_dim
+        layer_0_input_dim=node_dim+mem_dim if self.is_memory else node_dim
         self.attn_layers=torch.nn.ModuleList([
             TemporalGraphAttention(
-                input_dim=layer_0_dim if idx==0 else latent_dim,
-                output_dim=latent_dim,
+                input_dim=layer_0_input_dim if idx==0 else output_dim,
                 latent_dim=latent_dim,
+                output_dim=output_dim,
                 time_dim=time_dim,
                 n_head=n_head
             )
@@ -49,6 +51,7 @@ class GraphAttentionEmbedding(EmbeddingModule):
             node_dim:int=32,
             mem_dim:int=32,
             latent_dim:int=32,
+            output_dim:int=32,
             time_dim:int=32,
             graph_data:TemporalGraphData=None,
             memory_data:MemoryData=None,
@@ -61,6 +64,7 @@ class GraphAttentionEmbedding(EmbeddingModule):
             node_dim=node_dim,
             mem_dim=mem_dim,
             latent_dim=latent_dim,
+            output_dim=output_dim,
             time_dim=time_dim,
             graph_data=graph_data,
             memory_data=memory_data,
@@ -111,43 +115,35 @@ class GraphAttentionEmbedding(EmbeddingModule):
             batch_n_ts=embed_data["batch_n_ts"] # [B,N]
             batch_n_mask=embed_data["batch_n_mask"] # [B,N]
 
-            ### batch 내의 target node들의 이웃 노드들이 하나도 없는 경우 torch.tensor([])
-            if batch_n.numel()==0:
-                return batch_tar_ft 
-                # 문제점:
-                # -> aggregate를 안하고 반환하여 memory 있을 경우 
-                # aggregation 결과인 [B,latent_dim]이 아니라
-                # [B,node_dim+mem_dim]으로 반환된다.
-            else:
-                batch_size,max_n=batch_n.size()
-                batch_n=batch_n.flatten() # [B,N] -> [B x N,]
-                batch_n_t=batch_n_t.flatten() # [B,N] -> [B x N,]
-                n_embedding=self.compute_embedding(
-                    batch_tar=batch_n,
-                    batch_t=batch_n_t,
-                    n_layer=n_layer-1
-                ) # [B x N,latent_dim]
+            batch_size,max_n=batch_n.size()
+            batch_n=batch_n.flatten() # [B,N] -> [B x N,]
+            batch_n_t=batch_n_t.flatten() # [B,N] -> [B x N,]
+            n_embedding=self.compute_embedding(
+                batch_tar=batch_n,
+                batch_t=batch_n_t,
+                n_layer=n_layer-1
+            ) # [B x N,latent_dim]
 
-                ### aggregation
-                # time encoding
-                batch_tar_ts=batch_tar_ts.unsqueeze(-1) # -> [B,1]
-                batch_n_ts=batch_n_ts.unsqueeze(-1) # -> [B,N,1]
-                batch_tar_ts_ft=self.time_encoder(batch_tar_ts) # -> [B,time_dim]
-                batch_n_ts_ft=self.time_encoder(batch_n_ts) # -> [B,N,time_dim]
+            ### aggregation
+            # time encoding
+            batch_tar_ts=batch_tar_ts.unsqueeze(-1) # -> [B,1]
+            batch_n_ts=batch_n_ts.unsqueeze(-1) # -> [B,N,1]
+            batch_tar_ts_ft=self.time_encoder(batch_tar_ts) # -> [B,time_dim]
+            batch_n_ts_ft=self.time_encoder(batch_n_ts) # -> [B,N,time_dim]
 
-                # reshape
-                n_embedding=n_embedding.reshape(batch_size,max_n,-1) # -> [B,N,latent_dim]
+            # reshape
+            n_embedding=n_embedding.reshape(batch_size,max_n,-1) # -> [B,N,latent_dim]
 
-                # aggregate
-                updated_batch_tar_ft=self.aggregate(
-                    tar_ft=batch_tar_ft,
-                    tar_ts_ft=batch_tar_ts_ft,
-                    n_ft=n_embedding,
-                    n_ts_ft=batch_n_ts_ft,
-                    n_mask=batch_n_mask,
-                    n_layer=n_layer
-                )
-                return updated_batch_tar_ft
+            # aggregate
+            updated_batch_tar_ft=self.aggregate(
+                tar_ft=batch_tar_ft,
+                tar_ts_ft=batch_tar_ts_ft,
+                n_ft=n_embedding,
+                n_ts_ft=batch_n_ts_ft,
+                n_mask=batch_n_mask,
+                n_layer=n_layer
+            )
+            return updated_batch_tar_ft
     
     def aggregate(self,
             tar_ft:torch.Tensor,

@@ -51,6 +51,7 @@ class TemporalGraphData:
 
     def find_temporal_neighbor(self,tar,cut_time):
         """
+        temporal neighbor 없을 경우 [],[] 반환
         """
         if tar not in self.neighbor:
             return [],[]
@@ -70,42 +71,49 @@ class TemporalGraphData:
             batch_n_ts: [B,N], 이웃 노드들과의 timespan
             batch_n_mask: [B,N]
         """
-
-        ### temporal_n=[([],[]),...] 인 경우 처리 필요. (이웃 노드가 없는 경우)
-
         temporal_n=[
             self.find_temporal_neighbor(
                 tar=tar.item(),
                 cut_time=timestamp.item()
             )
             for tar,timestamp in zip(batch_tar,batch_t)
-        ]
-
+        ] # List of tuple (neighbor=[...],neighbor_t=[...])
         n_list=[result[0] for result in temporal_n]
         n_t_list=[result[1] for result in temporal_n]
-        batch_size=batch_tar.size(0)
         max_n=max(len(n) for n in n_list)
 
-        batch_tar_ts=torch.zeros((batch_size,),dtype=torch.float32) # [B,]
-        batch_n=torch.zeros((batch_size,max_n),dtype=torch.long) # [B,N]
-        batch_n_t=torch.zeros((batch_size,max_n),dtype=torch.float32) # [B,N]
-        batch_n_ts = torch.zeros((batch_size,max_n),dtype=torch.float32) # [B,N]
-        batch_n_mask=torch.zeros((batch_size,max_n),dtype=torch.bool) # [B,N]
+        if max_n==0:
+            """
+            target node들의 이웃 노드들이 단 한개도 없는 경우 dummy node를 이웃으로 반환, mask는 False
+            """
+            batch_size=batch_tar.size(0)
+            batch_tar_ts=torch.zeros((batch_size,),dtype=torch.float32) # [B,]
+            batch_n=torch.zeros((batch_size,1),dtype=torch.long) # [B,1]
+            batch_n_t=torch.zeros((batch_size,1),dtype=torch.float32) # [B,1]
+            batch_n_ts=torch.zeros((batch_size,1),dtype=torch.float32) # [B,1]
+            batch_n_mask=torch.zeros((batch_size,1),dtype=torch.bool) # [B,1]
+        else:
+            batch_size=batch_tar.size(0)
+            batch_tar_ts=torch.zeros((batch_size,),dtype=torch.float32) # [B,]
+            batch_n=torch.zeros((batch_size,max_n),dtype=torch.long) # [B,max_n]
+            batch_n_t=torch.zeros((batch_size,max_n),dtype=torch.float32) # [B,max_n]
+            batch_n_ts=torch.zeros((batch_size,max_n),dtype=torch.float32) # [B,max_n]
+            batch_n_mask=torch.zeros((batch_size,max_n),dtype=torch.bool) # [B,max_n]
 
-        for idx,(neighbors,timestamps) in enumerate(zip(n_list,n_t_list)):
-            n_len=len(neighbors)
-            if n_len==0:
-                continue
-            neighbors_tensor=torch.tensor(neighbors,dtype=torch.long)
-            timestamps_tensor=torch.tensor(timestamps,dtype=torch.float32)
+            for idx,(neighbors,timestamps) in enumerate(zip(n_list,n_t_list)):
+                n_len=len(neighbors)
+                if n_len==0:
+                    continue
+                neighbors_tensor=torch.tensor(neighbors,dtype=torch.long)
+                timestamps_tensor=torch.tensor(timestamps,dtype=torch.float32)
 
-            batch_n[idx,:n_len]=neighbors_tensor
-            batch_n_t[idx,:n_len]=timestamps_tensor
+                batch_n[idx,:n_len]=neighbors_tensor
+                batch_n_t[idx,:n_len]=timestamps_tensor
 
-            batch_n_ts[idx,:n_len]=torch.abs(
-                batch_t[idx]-timestamps_tensor # broadcasting
-            )
-            batch_n_mask[idx,:n_len]=True
+                batch_n_ts[idx,:n_len]=torch.abs(
+                    batch_t[idx]-timestamps_tensor # broadcasting
+                )
+                batch_n_mask[idx,:n_len]=True
 
         return {
             "batch_tar_ts": batch_tar_ts,
