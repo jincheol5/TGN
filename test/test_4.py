@@ -85,9 +85,9 @@ def test_fn(**kwargs):
 
                 ### execute memory, embed module
                 src,tar,event_t=zip(*batch_events)
-                src=torch.tensor(src,dtype=torch.long) # [B,]
-                tar=torch.tensor(tar,dtype=torch.long) # [B,]
-                event_t=torch.tensor(event_t,dtype=torch.float32) # [B,]
+                src=torch.tensor(src,dtype=torch.long,device=device) # [B,]
+                tar=torch.tensor(tar,dtype=torch.long,device=device) # [B,]
+                event_t=torch.tensor(event_t,dtype=torch.float32,device=device) # [B,]
 
                 # 1. execute memory module
                 memory_updater.update_memory(
@@ -140,7 +140,7 @@ def test_fn(**kwargs):
                 (1,3,9)
             ]
             memory_data=MemoryData(mem_dim=mem_dim,device=device)
-            time_encoder=TimeEncoder(time_dim=time_dim,device=device)
+            time_encoder=TimeEncoder(time_dim=time_dim)
             memory_updater=GRUMemoryUpdater(
                 mem_dim=mem_dim,
                 msg_dim=msg_dim,
@@ -172,9 +172,9 @@ def test_fn(**kwargs):
 
                 ### execute memory, embed module
                 src,tar,event_t=zip(*batch_events)
-                src=torch.tensor(src,dtype=torch.long) # [B,]
-                tar=torch.tensor(tar,dtype=torch.long) # [B,]
-                event_t=torch.tensor(event_t,dtype=torch.float32) # [B,]
+                src=torch.tensor(src,dtype=torch.long,device=device) # [B,]
+                tar=torch.tensor(tar,dtype=torch.long,device=device) # [B,]
+                event_t=torch.tensor(event_t,dtype=torch.float32,device=device) # [B,]
 
                 # 1. execute memory module
                 memory_updater.update_memory(
@@ -225,7 +225,7 @@ def test_fn(**kwargs):
                 (1,3,9)
             ]
             memory_data=MemoryData(mem_dim=mem_dim,device=device)
-            time_encoder=TimeEncoder(time_dim=time_dim,device=device)
+            time_encoder=TimeEncoder(time_dim=time_dim)
             memory_updater=GRUMemoryUpdater(
                 mem_dim=mem_dim,
                 msg_dim=msg_dim,
@@ -257,9 +257,9 @@ def test_fn(**kwargs):
 
                 ### execute memory, embed module
                 src,tar,event_t=zip(*batch_events)
-                src=torch.tensor(src,dtype=torch.long) # [B,]
-                tar=torch.tensor(tar,dtype=torch.long) # [B,]
-                event_t=torch.tensor(event_t,dtype=torch.float32) # [B,]
+                src=torch.tensor(src,dtype=torch.long,device=device) # [B,]
+                tar=torch.tensor(tar,dtype=torch.long,device=device) # [B,]
+                event_t=torch.tensor(event_t,dtype=torch.float32,device=device) # [B,]
 
                 # 1. execute memory module
                 memory_updater.update_memory(
@@ -351,9 +351,9 @@ def test_fn(**kwargs):
 
                 ### execute memory, embed module
                 src,tar,event_t=zip(*batch_events)
-                src=torch.tensor(src,dtype=torch.long) # [B,]
-                tar=torch.tensor(tar,dtype=torch.long) # [B,]
-                event_t=torch.tensor(event_t,dtype=torch.float32) # [B,]
+                src=torch.tensor(src,dtype=torch.long,device=device) # [B,]
+                tar=torch.tensor(tar,dtype=torch.long,device=device) # [B,]
+                event_t=torch.tensor(event_t,dtype=torch.float32,device=device) # [B,]
 
                 # 1. execute memory module
                 memory_updater.update_memory(
