@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from typing_extensions import Literal
 
 """
 To Do List:
@@ -21,16 +22,27 @@ class TemporalGraphData:
         value: list of neighbor interact timestamp
         dummy node's neighbor_t: []
     """
-    def __init__(self,node_dim:int=32):
+    def __init__(self,
+            node_dim:int=32,
+            device:torch.device=torch.device("cpu")
+        ):
         self.node_ft={}
         self.neighbor={}
         self.neighbor_t={}
         self.node_dim=node_dim
-        
+        self.device=device
+
         # init dummy node feature
-        self.node_ft[0]=torch.zeros(self.node_dim)
+        self.node_ft[0]=torch.zeros(self.node_dim,device=self.device)
         self.neighbor[0]=[]
         self.neighbor_t[0]=[]
+
+    def set_device(self,
+            device:torch.device=torch.device("cpu")
+        ):
+        self.device=device
+        for node in self.node_ft.keys():
+            self.node_ft[node].to(self.device)
 
     def update_graph(self,batch_events:list):
         """
@@ -40,9 +52,9 @@ class TemporalGraphData:
         for event in batch_events:
             src,tar,timestamp=event
             if src not in self.node_ft:
-                self.node_ft[src]=torch.ones(self.node_dim)
+                self.node_ft[src]=torch.ones(self.node_dim,device=self.device)
             if tar not in self.node_ft:
-                self.node_ft[tar]=torch.ones(self.node_dim)
+                self.node_ft[tar]=torch.ones(self.node_dim,device=self.device)
             if tar not in self.neighbor:
                 self.neighbor[tar]=[]
                 self.neighbor_t[tar]=[]
@@ -87,25 +99,25 @@ class TemporalGraphData:
             target node들의 이웃 노드들이 단 한개도 없는 경우 dummy node를 이웃으로 반환, mask는 False
             """
             batch_size=batch_tar.size(0)
-            batch_tar_ts=torch.zeros((batch_size,),dtype=torch.float32) # [B,]
-            batch_n=torch.zeros((batch_size,1),dtype=torch.long) # [B,1]
-            batch_n_t=torch.zeros((batch_size,1),dtype=torch.float32) # [B,1]
-            batch_n_ts=torch.zeros((batch_size,1),dtype=torch.float32) # [B,1]
-            batch_n_mask=torch.zeros((batch_size,1),dtype=torch.bool) # [B,1]
+            batch_tar_ts=torch.zeros((batch_size,),dtype=torch.float32,device=self.device) # [B,]
+            batch_n=torch.zeros((batch_size,1),dtype=torch.long,device=self.device) # [B,1]
+            batch_n_t=torch.zeros((batch_size,1),dtype=torch.float32,device=self.device) # [B,1]
+            batch_n_ts=torch.zeros((batch_size,1),dtype=torch.float32,device=self.device) # [B,1]
+            batch_n_mask=torch.zeros((batch_size,1),dtype=torch.bool,device=self.device) # [B,1]
         else:
             batch_size=batch_tar.size(0)
-            batch_tar_ts=torch.zeros((batch_size,),dtype=torch.float32) # [B,]
-            batch_n=torch.zeros((batch_size,max_n),dtype=torch.long) # [B,max_n]
-            batch_n_t=torch.zeros((batch_size,max_n),dtype=torch.float32) # [B,max_n]
-            batch_n_ts=torch.zeros((batch_size,max_n),dtype=torch.float32) # [B,max_n]
-            batch_n_mask=torch.zeros((batch_size,max_n),dtype=torch.bool) # [B,max_n]
+            batch_tar_ts=torch.zeros((batch_size,),dtype=torch.float32,device=self.device) # [B,]
+            batch_n=torch.zeros((batch_size,max_n),dtype=torch.long,device=self.device) # [B,max_n]
+            batch_n_t=torch.zeros((batch_size,max_n),dtype=torch.float32,device=self.device) # [B,max_n]
+            batch_n_ts=torch.zeros((batch_size,max_n),dtype=torch.float32,device=self.device) # [B,max_n]
+            batch_n_mask=torch.zeros((batch_size,max_n),dtype=torch.bool,device=self.device) # [B,max_n]
 
             for idx,(neighbors,timestamps) in enumerate(zip(n_list,n_t_list)):
                 n_len=len(neighbors)
                 if n_len==0:
                     continue
-                neighbors_tensor=torch.tensor(neighbors,dtype=torch.long)
-                timestamps_tensor=torch.tensor(timestamps,dtype=torch.float32)
+                neighbors_tensor=torch.tensor(neighbors,dtype=torch.long,device=self.device)
+                timestamps_tensor=torch.tensor(timestamps,dtype=torch.float32,device=self.device)
 
                 batch_n[idx,:n_len]=neighbors_tensor
                 batch_n_t[idx,:n_len]=timestamps_tensor
@@ -144,7 +156,7 @@ class TemporalGraphData:
         Output:
             batch_n_ft: [B,N,node_dim]
         """
-        padding_ft=torch.zeros(self.node_dim)
+        padding_ft=torch.zeros(self.node_dim,device=self.device)
         batch_n_ft=torch.stack([
             torch.stack([
                 self.node_ft[node_id.item()]
@@ -169,14 +181,25 @@ class MemoryData:
         dummy node id: 0
         dummy node value: []
     """
-    def __init__(self,mem_dim:int=32):
+    def __init__(self,
+            mem_dim:int=32,
+            device:torch.device=torch.device("cpu")
+        ):
         self.memory={}
         self.interact_t={}
         self.mem_dim=mem_dim
-        
+        self.device=device
+
         # init dummy node
-        self.memory[0]=torch.zeros(self.mem_dim)
+        self.memory[0]=torch.zeros(self.mem_dim,device=self.device)
         self.interact_t[0]=[]
+
+    def set_device(self,
+            device:torch.device=torch.device("cpu")
+        ):
+        self.device=device
+        for node in self.memory.keys():
+            self.memory[node].to(self.device)
 
     def update_memory_data(self,batch_events:list):
         """
@@ -186,10 +209,10 @@ class MemoryData:
         for event in batch_events:
             src,tar,timestamp=event
             if src not in self.memory:
-                self.memory[src]=torch.zeros(self.mem_dim)
+                self.memory[src]=torch.zeros(self.mem_dim,device=self.device)
                 self.interact_t[src]=[]
             if tar not in self.memory:
-                self.memory[tar]=torch.zeros(self.mem_dim)
+                self.memory[tar]=torch.zeros(self.mem_dim,device=self.device)
                 self.interact_t[tar]=[]
             self.interact_t[src].append(timestamp)
             self.interact_t[tar].append(timestamp)
@@ -229,7 +252,7 @@ class MemoryData:
             [
                 self.memory[node.item()].detach()
                 if node.item() in self.memory
-                else torch.zeros(self.mem_dim)
+                else torch.zeros(self.mem_dim,device=self.device)
                 for node in batch_node
             ],
             dim=0
@@ -253,7 +276,7 @@ class MemoryData:
             ]
             for node,timestamp in zip(batch_node,batch_t)
         ]
-        batch_pre_t=torch.tensor(pre_interact_t_list) # [B,1]
+        batch_pre_t=torch.tensor(pre_interact_t_list,device=self.device) # [B,1]
         return batch_pre_t # [B,1]
 
     def get_batch_timespan(self,batch_node,batch_t):

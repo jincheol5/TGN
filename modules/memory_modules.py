@@ -143,7 +143,7 @@ class MemoryUpdater(nn.Module):
                     )
                     for node in msg_dict.keys()
                 ]
-        aggr_node=torch.tensor(aggr_node) # [unique_N,]
+        aggr_node=torch.tensor(aggr_node,device=src.device) # [unique_N,]
         aggr_msg=torch.stack(aggr_msg,dim=0) # [unique_N,msg_dim]
         return aggr_node,aggr_msg
 

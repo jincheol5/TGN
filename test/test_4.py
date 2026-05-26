@@ -27,6 +27,7 @@ def test_fn(**kwargs):
             aggr_fn="last"
             is_memory=True
             batch_size=4
+            device=kwargs["device"]
 
             # data
             eventstream=[
@@ -43,8 +44,8 @@ def test_fn(**kwargs):
                 (4,5,8),
                 (1,3,9)
             ]
-            graph_data=TemporalGraphData(node_dim=node_dim)
-            memory_data=MemoryData(mem_dim=mem_dim)
+            graph_data=TemporalGraphData(node_dim=node_dim,device=device)
+            memory_data=MemoryData(mem_dim=mem_dim,device=device)
             time_encoder=TimeEncoder(time_dim=time_dim)
             memory_updater=GRUMemoryUpdater(
                 mem_dim=mem_dim,
@@ -56,7 +57,7 @@ def test_fn(**kwargs):
                 aggr_fn=aggr_fn
             )
 
-            graph_embed=GraphAttentionEmbedding(
+            embedding_module=GraphAttentionEmbedding(
                 node_dim=node_dim,
                 mem_dim=mem_dim,
                 latent_dim=latent_dim,
@@ -70,6 +71,11 @@ def test_fn(**kwargs):
                 is_memory=is_memory
             )
             
+            # load to device
+            time_encoder=time_encoder.to(device)
+            memory_updater=memory_updater.to(device)
+            embedding_module=embedding_module.to(device)
+
             for idx in range(0,len(eventstream),batch_size):
                 batch_events=eventstream[idx:idx+batch_size]
 
@@ -91,7 +97,7 @@ def test_fn(**kwargs):
                 )
 
                 # 2. execute embed module
-                updated_batch_tar_ft=graph_embed.compute_embedding(
+                updated_batch_tar_ft=embedding_module.compute_embedding(
                     batch_tar=tar,
                     batch_t=event_t,
                     n_layer=3
@@ -116,6 +122,7 @@ def test_fn(**kwargs):
             aggr_fn="last"
             is_memory=True
             batch_size=4
+            device=kwargs["device"]
 
             # data
             eventstream=[
@@ -132,8 +139,8 @@ def test_fn(**kwargs):
                 (4,5,8),
                 (1,3,9)
             ]
-            memory_data=MemoryData(mem_dim=mem_dim)
-            time_encoder=TimeEncoder(time_dim=time_dim)
+            memory_data=MemoryData(mem_dim=mem_dim,device=device)
+            time_encoder=TimeEncoder(time_dim=time_dim,device=device)
             memory_updater=GRUMemoryUpdater(
                 mem_dim=mem_dim,
                 msg_dim=msg_dim,
@@ -151,6 +158,11 @@ def test_fn(**kwargs):
                 output_dim=output_dim,
                 memory_data=memory_data
             )
+
+            # load to device
+            time_encoder=time_encoder.to(device)
+            memory_updater=memory_updater.to(device)
+            embedding_module=embedding_module.to(device)
             
             for idx in range(0,len(eventstream),batch_size):
                 batch_events=eventstream[idx:idx+batch_size]
@@ -195,6 +207,7 @@ def test_fn(**kwargs):
             aggr_fn="last"
             is_memory=True
             batch_size=4
+            device=kwargs["device"]
 
             # data
             eventstream=[
@@ -211,8 +224,8 @@ def test_fn(**kwargs):
                 (4,5,8),
                 (1,3,9)
             ]
-            memory_data=MemoryData(mem_dim=mem_dim)
-            time_encoder=TimeEncoder(time_dim=time_dim)
+            memory_data=MemoryData(mem_dim=mem_dim,device=device)
+            time_encoder=TimeEncoder(time_dim=time_dim,device=device)
             memory_updater=GRUMemoryUpdater(
                 mem_dim=mem_dim,
                 msg_dim=msg_dim,
@@ -230,6 +243,11 @@ def test_fn(**kwargs):
                 output_dim=output_dim,
                 memory_data=memory_data
             )
+
+            # load to device
+            time_encoder=time_encoder.to(device)
+            memory_updater=memory_updater.to(device)
+            embedding_module=embedding_module.to(device)
             
             for idx in range(0,len(eventstream),batch_size):
                 batch_events=eventstream[idx:idx+batch_size]
@@ -276,6 +294,7 @@ def test_fn(**kwargs):
             aggr_fn="last"
             is_memory=True
             batch_size=4
+            device=kwargs["device"]
 
             # data
             eventstream=[
@@ -292,8 +311,8 @@ def test_fn(**kwargs):
                 (4,5,8),
                 (1,3,9)
             ]
-            graph_data=TemporalGraphData(node_dim=node_dim)
-            memory_data=MemoryData(mem_dim=mem_dim)
+            graph_data=TemporalGraphData(node_dim=node_dim,device=device)
+            memory_data=MemoryData(mem_dim=mem_dim,device=device)
             time_encoder=TimeEncoder(time_dim=time_dim)
             memory_updater=GRUMemoryUpdater(
                 mem_dim=mem_dim,
@@ -317,6 +336,11 @@ def test_fn(**kwargs):
                 n_layer=n_layer,
                 is_memory=is_memory
             )
+
+            # load to device
+            time_encoder=time_encoder.to(device)
+            memory_updater=memory_updater.to(device)
+            embedding_module=embedding_module.to(device)
             
             for idx in range(0,len(eventstream),batch_size):
                 batch_events=eventstream[idx:idx+batch_size]
@@ -355,8 +379,10 @@ if __name__=="__main__":
     """
     parser=argparse.ArgumentParser()
     parser.add_argument("--test_num",type=int,default=1)
+    parser.add_argument("--device",type=str,default="cpu")
     args=parser.parse_args()
     test_config={
-        'test_num':args.test_num
+        "test_num":args.test_num,
+        "device":args.device
     }
     test_fn(**test_config)
