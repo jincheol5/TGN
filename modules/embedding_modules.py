@@ -1,7 +1,8 @@
 import math
 import torch
 import torch.nn as nn
-from .data import TemporalGraphData,MemoryData
+from .temporal_graph import TemporalGraph
+from .memory import Memory
 from .time_encoding import TimeEncoder
 from .attention_modules import TemporalGraphAttention
 
@@ -11,7 +12,7 @@ class EmbeddingModule(nn.Module):
             mem_dim:int=32,
             latent_dim:int=32,
             output_dim:int=32,
-            memory_data:MemoryData=None,
+            memory:Memory=None,
             is_memory:bool=True
         ):
         super().__init__()
@@ -19,7 +20,7 @@ class EmbeddingModule(nn.Module):
         self.mem_dim=mem_dim
         self.latent_dim=latent_dim
         self.output_dim=output_dim
-        self.memory_data=memory_data
+        self.memory=memory
         self.is_memory=is_memory
 
     def compute_embedding(self):
@@ -34,18 +35,18 @@ class IdentityEmbedding(EmbeddingModule):
             mem_dim:int=32,
             latent_dim:int=32,
             output_dim:int=32,
-            memory_data:MemoryData=None,
+            memory:Memory=None,
         ):
         super(IdentityEmbedding,self).__init__(
             node_dim=node_dim,
             mem_dim=mem_dim,
             latent_dim=latent_dim,
             output_dim=output_dim,
-            memory_data=memory_data,
+            memory=memory,
             is_memory=True
         )
     def compute_embedding(self,batch_tar):
-        batch_tar_ft=self.memory_data.get_batch_memory(batch_node=batch_tar) # [B,mem_dim]
+        batch_tar_ft=self.memory.get_batch_memory(batch_node=batch_tar) # [B,mem_dim]
         return batch_tar_ft
 
 class TimeProjectionEmbedding(EmbeddingModule):
@@ -57,14 +58,14 @@ class TimeProjectionEmbedding(EmbeddingModule):
             mem_dim:int=32,
             latent_dim:int=32,
             output_dim:int=32,
-            memory_data:MemoryData=None,
+            memory:Memory=None,
         ):
         super(TimeProjectionEmbedding,self).__init__(
             node_dim=node_dim,
             mem_dim=mem_dim,
             latent_dim=latent_dim,
             output_dim=output_dim,
-            memory_data=memory_data,
+            memory=memory,
             is_memory=True
         )
         # time-projection embedding layer
@@ -78,8 +79,8 @@ class TimeProjectionEmbedding(EmbeddingModule):
         self.embedding_layer=NormalLinear(in_features=1,out_features=self.mem_dim)
 
     def compute_embedding(self,batch_tar,batch_t):
-        batch_mem=self.memory_data.get_batch_memory(batch_node=batch_tar) # [B,mem_dim]
-        batch_ts=self.memory_data.get_batch_timespan(
+        batch_mem=self.memory.get_batch_memory(batch_node=batch_tar) # [B,mem_dim]
+        batch_ts=self.memory.get_batch_timespan(
             batch_node=batch_tar,
             batch_t=batch_t
         ) # [B,1]
@@ -93,8 +94,8 @@ class GraphSumEmbedding(EmbeddingModule):
             latent_dim:int=32,
             output_dim:int=32,
             time_dim:int=32,
-            graph_data:TemporalGraphData=None,
-            memory_data:MemoryData=None,
+            graph:TemporalGraph=None,
+            memory:Memory=None,
             time_encoder:TimeEncoder=None,
             n_layer:int=1,
             is_memory:bool=True
@@ -104,7 +105,7 @@ class GraphSumEmbedding(EmbeddingModule):
             mem_dim=mem_dim,
             latent_dim=latent_dim,
             output_dim=output_dim,
-            memory_data=memory_data,
+            memory=memory,
             is_memory=is_memory
         )
         # parameter
@@ -112,7 +113,7 @@ class GraphSumEmbedding(EmbeddingModule):
         self.n_layer=n_layer
 
         # graph data
-        self.graph_data=graph_data
+        self.graph=graph
 
         # module
         self.time_encoder=time_encoder
@@ -141,14 +142,14 @@ class GraphSumEmbedding(EmbeddingModule):
         ):
         if n_layer==0:
             if self.is_memory:
-                batch_tar_mem=self.memory_data.get_batch_memory(batch_node=batch_tar) # [B,mem_dim]
-                batch_tar_ft=self.graph_data.get_batch_node_feature(batch_node=batch_tar) # [B,node_dim]
+                batch_tar_mem=self.memory.get_batch_memory(batch_node=batch_tar) # [B,mem_dim]
+                batch_tar_ft=self.graph.get_batch_node_feature(batch_node=batch_tar) # [B,node_dim]
                 batch_tar_ft=torch.concat(
                     [batch_tar_mem,batch_tar_ft],
                     dim=-1
                 ) # [B,mem_dim+node_dim]
             else:
-                batch_tar_ft=self.graph_data.get_batch_node_feature(batch_node=batch_tar) # [B,node_dim]
+                batch_tar_ft=self.graph.get_batch_node_feature(batch_node=batch_tar) # [B,node_dim]
             return batch_tar_ft
         else:
             batch_tar_ft=self.compute_embedding(
@@ -156,7 +157,7 @@ class GraphSumEmbedding(EmbeddingModule):
                 batch_t=batch_t,
                 n_layer=n_layer-1
             )
-            embed_data=self.graph_data.get_data_for_embedding(
+            embed_data=self.graph.get_data_for_embedding(
                 batch_tar=batch_tar,
                 batch_t=batch_t
             )
@@ -247,8 +248,8 @@ class GraphAttentionEmbedding(EmbeddingModule):
             latent_dim:int=32,
             output_dim:int=32,
             time_dim:int=32,
-            graph_data:TemporalGraphData=None,
-            memory_data:MemoryData=None,
+            graph:TemporalGraph=None,
+            memory:Memory=None,
             time_encoder:TimeEncoder=None,
             n_head:int=1,
             n_layer:int=1,
@@ -259,7 +260,7 @@ class GraphAttentionEmbedding(EmbeddingModule):
             mem_dim=mem_dim,
             latent_dim=latent_dim,
             output_dim=output_dim,
-            memory_data=memory_data,
+            memory=memory,
             is_memory=is_memory
         )
         # parameter
@@ -267,8 +268,8 @@ class GraphAttentionEmbedding(EmbeddingModule):
         self.n_head=n_head
         self.n_layer=n_layer
 
-        # graph data
-        self.graph_data=graph_data
+        # graph
+        self.graph=graph
 
         # time,attn module
         self.time_encoder=time_encoder
@@ -299,14 +300,14 @@ class GraphAttentionEmbedding(EmbeddingModule):
         """
         if n_layer==0:
             if self.is_memory:
-                batch_tar_mem=self.memory_data.get_batch_memory(batch_node=batch_tar) # [B,mem_dim]
-                batch_tar_ft=self.graph_data.get_batch_node_feature(batch_node=batch_tar) # [B,node_dim]
+                batch_tar_mem=self.memory.get_batch_memory(batch_node=batch_tar) # [B,mem_dim]
+                batch_tar_ft=self.graph.get_batch_node_feature(batch_node=batch_tar) # [B,node_dim]
                 batch_tar_ft=torch.concat(
                     [batch_tar_mem,batch_tar_ft],
                     dim=-1
                 ) # [B,mem_dim+node_dim]
             else:
-                batch_tar_ft=self.graph_data.get_batch_node_feature(batch_node=batch_tar) # [B,node_dim]
+                batch_tar_ft=self.graph.get_batch_node_feature(batch_node=batch_tar) # [B,node_dim]
             return batch_tar_ft
         else:
             batch_tar_ft=self.compute_embedding(
@@ -314,7 +315,7 @@ class GraphAttentionEmbedding(EmbeddingModule):
                 batch_t=batch_t,
                 n_layer=n_layer-1
             )
-            embed_data=self.graph_data.get_data_for_embedding(
+            embed_data=self.graph.get_data_for_embedding(
                 batch_tar=batch_tar,
                 batch_t=batch_t
             )

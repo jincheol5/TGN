@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from typing_extensions import Literal
 from .time_encoding import TimeEncoder
-from .data import MemoryData 
+from .memory import Memory
 
 class MemoryUpdater(nn.Module):
     def __init__(self,
@@ -10,12 +10,12 @@ class MemoryUpdater(nn.Module):
             msg_dim:int,
             time_dim:int,
             time_encoder:TimeEncoder,
-            memory_data:MemoryData,
+            memory:Memory,
             msg_fn:Literal["concat","mlp"]="concat",
             aggr_fn:Literal["last","mean"]="last"
         ):
         super().__init__()
-        self.memory_data=memory_data
+        self.memory=memory
         self.msg_fn=msg_fn
         self.aggr_fn=aggr_fn
         self.mem_dim=mem_dim
@@ -52,12 +52,12 @@ class MemoryUpdater(nn.Module):
             src_msg: [B,msg_dim]
             tar_msg: [B,msg_dim]
         """
-        src_mem=self.memory_data.get_batch_memory(batch_node=src) # [B,mem_dim]
-        src_ts=self.memory_data.get_batch_timespan(batch_node=src,batch_t=event_t) # [B,1]
+        src_mem=self.memory.get_batch_memory(batch_node=src) # [B,mem_dim]
+        src_ts=self.memory.get_batch_timespan(batch_node=src,batch_t=event_t) # [B,1]
         src_ts_encoding=self.time_encoder(src_ts) # [B,time_dim]
 
-        tar_mem=self.memory_data.get_batch_memory(batch_node=tar) # [B,mem_dim]
-        tar_ts=self.memory_data.get_batch_timespan(batch_node=tar,batch_t=event_t) # [B,1]
+        tar_mem=self.memory.get_batch_memory(batch_node=tar) # [B,mem_dim]
+        tar_ts=self.memory.get_batch_timespan(batch_node=tar,batch_t=event_t) # [B,1]
         tar_ts_encoding=self.time_encoder(tar_ts) # [B,time_dim]
 
         src_msg=torch.concat(
@@ -182,7 +182,7 @@ class GRUMemoryUpdater(MemoryUpdater):
             msg_dim:int,
             time_dim:int,
             time_encoder:TimeEncoder,
-            memory_data:MemoryData,
+            memory:Memory,
             msg_fn:Literal["concat","mlp"]="concat",
             aggr_fn:Literal["last","mean"]="last"
         ):
@@ -191,7 +191,7 @@ class GRUMemoryUpdater(MemoryUpdater):
             msg_dim=msg_dim,
             time_dim=time_dim,
             time_encoder=time_encoder,
-            memory_data=memory_data,
+            memory=memory,
             msg_fn=msg_fn,
             aggr_fn=aggr_fn
         )
@@ -206,9 +206,9 @@ class GRUMemoryUpdater(MemoryUpdater):
             aggr_node: [unique_N,]
             aggr_msg: [unique_N,msg_dim]
         """
-        pre_memory=self.memory_data.get_batch_memory(batch_node=aggr_node) # [unique_N,mem_dim]
+        pre_memory=self.memory.get_batch_memory(batch_node=aggr_node) # [unique_N,mem_dim]
         updated_memory=self.memory_updater(aggr_msg,pre_memory) # [unique_N,mem_dim]
-        self.memory_data.update_memory_state(batch_node=aggr_node,batch_memory=updated_memory)
+        self.memory.update_memory_state(batch_node=aggr_node,batch_memory=updated_memory)
 
 class RNNMemoryUpdater(MemoryUpdater):
     def __init__(self,
@@ -216,7 +216,7 @@ class RNNMemoryUpdater(MemoryUpdater):
             msg_dim:int,
             time_dim:int,
             time_encoder:TimeEncoder,
-            memory_data:MemoryData,
+            memory:Memory,
             msg_fn:Literal["concat","mlp"]="concat",
             aggr_fn:Literal["last","mean"]="last"
         ):
@@ -225,7 +225,7 @@ class RNNMemoryUpdater(MemoryUpdater):
             msg_dim=msg_dim,
             time_dim=time_dim,
             time_encoder=time_encoder,
-            memory_data=memory_data,
+            memory=memory,
             msg_fn=msg_fn,
             aggr_fn=aggr_fn
         )
@@ -240,6 +240,6 @@ class RNNMemoryUpdater(MemoryUpdater):
             aggr_node: [unique_N,]
             aggr_msg: [unique_N,msg_dim]
         """
-        pre_memory=self.memory_data.get_batch_memory(batch_node=aggr_node) # [unique_N,mem_dim]
+        pre_memory=self.memory.get_batch_memory(batch_node=aggr_node) # [unique_N,mem_dim]
         updated_memory=self.memory_updater(aggr_msg,pre_memory) # [unique_N,mem_dim]
-        self.memory_data.update_memory_state(batch_node=aggr_node,batch_memory=updated_memory)
+        self.memory.update_memory_state(batch_node=aggr_node,batch_memory=updated_memory)
